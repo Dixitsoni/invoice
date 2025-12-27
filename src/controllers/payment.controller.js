@@ -28,6 +28,7 @@ export const paymentStripe = async (req, res) => {
     const { amount, invoiceId } = req.body;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      ui_mode:'embedded',
       payment_method_types: ["card"],
       line_items: [{
         price_data: {
@@ -37,11 +38,12 @@ export const paymentStripe = async (req, res) => {
         },
         quantity: 1,
       }],
-      success_url: "http://10.199.118.151:3000/success",
-      cancel_url: "http://10.199.118.151:3000/cancel",
+      customer_creation: "always",
+      return_url: "http://10.199.118.151:3000/success",
+      // cancel_url: "http://10.199.118.151:3000/cancel",
     });
 
-    res.json({ url: session.url });
+    res.json({ clientSecret: session.client_secret });
 
     // const paymentIntent = await stripe.paymentIntents.create({
     //   amount: amount, // in cents
