@@ -37,8 +37,8 @@ export const paymentStripe = async (req, res) => {
         },
         quantity: 1,
       }],
-      success_url: "http://localhost:3000/success",
-      cancel_url: "http://localhost:3000/cancel",
+      success_url: "http://10.199.118.151:3000/success",
+      cancel_url: "http://10.199.118.151:3000/cancel",
     });
 
     res.json({ url: session.url });
