@@ -28,7 +28,6 @@ export const paymentStripe = async (req, res) => {
     const { amount, invoiceId } = req.body;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["cashapp"],
       line_items: [
         {
           price_data: {
