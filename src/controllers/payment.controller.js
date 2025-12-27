@@ -28,20 +28,22 @@ export const paymentStripe = async (req, res) => {
     const { amount, invoiceId } = req.body;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      ui_mode:'embedded',
-      payment_method_types: ["card"],
-      line_items: [{
-        price_data: {
-          currency: "usd",
-          product_data: { name: "Test Product" },
-          unit_amount: 50,
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: "Payment" },
+            unit_amount: 1000,
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      }],
-      customer_creation: "always",
-      return_url: "http://10.199.118.151:3000/success",
-      // cancel_url: "http://10.199.118.151:3000/cancel",
+      ],
+      success_url: "https://pay-ochre-five.vercel.app/success",
+      cancel_url: "https://pay-ochre-five.vercel.app/cancel",
     });
+
+    res.json({ url: session.url });
+
 
     res.json({ clientSecret: session.client_secret });
 
