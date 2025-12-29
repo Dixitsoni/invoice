@@ -58,16 +58,18 @@ export const generatePaymentLink = async (req, res) => {
 
     if (invoice.status === "paid") {
       return res.status(400).json({ message: "Invoice already paid" });
+    } else {
+
+      const paymentUrl = await createPaymentLink(invoice);
+
+
+      // 🔔 WhatsApp send here (Wasender / Twilio)
+      // sendWhatsApp(invoice.clientPhone, paymentUrl);
+
+
+      res.json({ paymentUrl });
     }
 
-    const paymentUrl = await createPaymentLink(invoice);
-
-
-    // 🔔 WhatsApp send here (Wasender / Twilio)
-    // sendWhatsApp(invoice.clientPhone, paymentUrl);
-
-
-    res.json({ paymentUrl });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
