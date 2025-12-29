@@ -82,11 +82,9 @@ const router = express.Router();
  */
 router.get("/", protect, async (req, res) => {
   try {
-    const invoices = await Invoice.find();
-    const clients = await Client.find();
-
+    const invoices = await Invoice.find().populate('clientId');
     // Total invoiced
-    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
 
     // Pending / Overdue / Paid
     const pendingCount = invoices.filter(inv => inv.status === "Pending").length;
@@ -100,28 +98,27 @@ router.get("/", protect, async (req, res) => {
       const monthStr = month.toLocaleString("default", { month: "short", year: "numeric" });
       const monthSum = invoices
         .filter(inv => new Date(inv.createdAt).getMonth() === month.getMonth() &&
-                       new Date(inv.createdAt).getFullYear() === month.getFullYear())
+          new Date(inv.createdAt).getFullYear() === month.getFullYear())
         .reduce((sum, inv) => sum + inv.amount, 0);
       invoiceTrend.push({ month: monthStr, amount: monthSum });
     }
-
     // Recent invoices (last 5)
     const recentInvoices = invoices
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 5)
       .map(inv => ({
         invoiceNumber: inv.invoiceNumber,
-        client: inv.clientName,
+        client: inv.clientId.name,
         dueDate: inv.dueDate,
         status: inv.status,
-        amount: inv.amount
+        amount: inv.totalAmount
       }));
 
     // Top clients
     const topClientsMap = {};
     invoices.forEach(inv => {
-      if (!topClientsMap[inv.clientName]) topClientsMap[inv.clientName] = 0;
-      topClientsMap[inv.clientName] += inv.amount;
+      if (!topClientsMap[inv.clientId.name]) topClientsMap[inv.clientId.name] = 0;
+      topClientsMap[inv.clientId.name] += inv.totalAmount;
     });
     const topClients = Object.entries(topClientsMap)
       .sort((a, b) => b[1] - a[1])
