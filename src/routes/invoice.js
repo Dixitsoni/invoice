@@ -5,6 +5,7 @@ import {
   getInvoices,
   getInvoiceById,
   updateInvoice,
+  deleteInvoice,
 } from "../controllers/invoice.controller.js";
 import { generateInvoicePDF, sendInvoiceEmail } from "../controllers/invoice.pdf.controller.js";
 
@@ -232,6 +233,9 @@ router.get("/:id", protect, getInvoiceById);
  *         description: Server error
  */
 router.get("/pdf/:invoiceId", protect, generateInvoicePDF);
+
+
+router.delete('/invoice/:id', protect, deleteInvoice)
 
 /**
  * @swagger

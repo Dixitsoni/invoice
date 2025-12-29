@@ -95,18 +95,23 @@ export const updateInvoice = async (req, res, next) => {
 };
 
 // DELETE INVOICE
-export const deleteInvoice = async (req, res, next) => {
+export const deleteInvoice = async (req, res) => {
   try {
-    const invoice = await Invoice.findByIdAndDelete(req.params.id);
-
-    if (!invoice)
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
+    }
 
-    res.json({
-      success: true,
-      message: "Invoice deleted successfully"
-    });
+    // Optional: block delete if paid
+    if (invoice.status === "paid") {
+      return res.status(400).json({ message: "Paid invoice cannot be deleted" });
+    }
+
+    await invoice.deleteOne();
+    res.json({ message: "Invoice deleted successfully" });
+
   } catch (err) {
-    next(err);
+    res.status(500).json({ message: err.message });
   }
 };
+
