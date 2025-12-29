@@ -6,6 +6,7 @@ import { connectDB } from "./config/db.js";
 import { setupSecurity } from "./config/security.js";
 import { setupSwagger } from "./config/swagger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import cron from "node-cron";
 
 // Routes
 import authRoutes from "./routes/auth.js";
@@ -17,6 +18,8 @@ import invoicePDFRoutes from "./routes/invoice.pdf.routes.js";
 import twoFARoutes from "./routes/2fa.routes.js";
 import recurringRoutes from "./routes/recurring.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import PaymentLink from "./model/PaymentLink.js";
+import { confirmPayment } from "./controllers/payment.controller.js";
 dotenv.config();
 
 /* -------------------- DB -------------------- */
@@ -34,6 +37,21 @@ setupSecurity(app);
 /* -------------------- Swagger -------------------- */
 setupSwagger(app);
 
+cron.schedule("*/30 * * * *", async () => {
+  console.log("Running payment link expiry job");
+
+  await PaymentLink.updateMany(
+    {
+      status: "PENDING",
+      expiresAt: { $lt: new Date() }
+    },
+    {
+      status: "EXPIRED"
+    }
+  );
+});
+
+
 /* -------------------- API Routes -------------------- */
 app.use("/api/auth", authRoutes);
 
@@ -44,7 +62,8 @@ app.use("/api/invoices", invoiceRoutes);         // ✅ Invoice CRUD
 // app.use("/api/invoices", invoicePDFRoutes);      // ✅ PDF + Email
 app.use("/api/invoices", recurringRoutes);       // ✅ Recurring invoices
 
-app.use("/api/payments", paymentRoutes);         // ✅ Stripe / Razorpay / PayPal
+app.use("/api/payments", paymentRoutes);     
+    // ✅ Stripe / Razorpay / PayPal
 app.use("/api/payments/sync", paymentSyncRoutes);// ✅ Payment Sync (Webhook / Manual)
 
 app.use("/api/2fa", twoFARoutes);                 // ✅ OTP + Google Authenticator

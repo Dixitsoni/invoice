@@ -1,18 +1,40 @@
+import Stripe from "stripe";
 import Client from "../model/Client.js";
+import { configDotenv } from "dotenv";
+
+configDotenv()
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 
 /**
  * @desc Create new client
  */
 export const createClient = async (req, res) => {
-  const client = await Client.create({
-    ...req.body,
-    createdBy: req.user.id,
-  });
+  try {
+    const { name, email, phone } = req.body;
 
-  res.status(201).json({
-    success: true,
-    data: client,
-  });
+    await stripe.customers.create({
+      name,
+      email,
+      phone,
+    });
+
+    const client = await Client.create({
+      ...req.body,
+      createdBy: req.user.id,
+    });
+
+    client.save()
+
+    res.json({
+      message: 'Client is created Successfully',
+      error: false
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+
 };
 
 /**

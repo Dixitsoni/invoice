@@ -1,166 +1,41 @@
 import express from "express";
-import { protect } from "../middleware/auth.js";
-import {
-  syncStripePayment,
-  syncRazorpayPayment,
-  syncPayPalPayment,
-} from "../controllers/payment.sync.controller.js";
+import Stripe from "stripe";
+import PaymentLink from "../model/PaymentLink.js";
+import Invoice from "../model/Invoice.js";
 
 const router = express.Router();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-/**
- * @swagger
- * tags:
- *   name: Payment Sync
- *   description: Webhook / Sync payment status with system
- */
+router.post("/stripe", express.raw({ type: "application/json" }), async (req, res) => {
+  const sig = req.headers["stripe-signature"];
 
-/**
- * @swagger
- * /api/payments/sync/stripe:
- *   post:
- *     summary: Sync Stripe payment status
- *     tags: [Payment Sync]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       description: Stripe webhook payload
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               invoiceId:
- *                 type: string
- *                 example: 64ab1234cdef56789abcd123
- *               status:
- *                 type: string
- *                 description: Payment status (paid, failed, refunded)
- *                 example: paid
- *               paymentIntentId:
- *                 type: string
- *                 example: pi_3KZ5hY2eZvKYlo2CHsU...
- *     responses:
- *       200:
- *         description: Payment synced successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Stripe payment synced
- *       400:
- *         description: Invalid data
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post("/stripe", protect, syncStripePayment);
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
-/**
- * @swagger
- * /api/payments/sync/razorpay:
- *   post:
- *     summary: Sync Razorpay payment status
- *     tags: [Payment Sync]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       description: Razorpay payment payload
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               invoiceId:
- *                 type: string
- *                 example: 64ab1234cdef56789abcd123
- *               status:
- *                 type: string
- *                 description: Payment status (paid, failed, refunded)
- *                 example: paid
- *               razorpayPaymentId:
- *                 type: string
- *                 example: pay_29QQoUBi66xm2f
- *     responses:
- *       200:
- *         description: Payment synced successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Razorpay payment synced
- *       400:
- *         description: Invalid data
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post("/razorpay", protect, syncRazorpayPayment);
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    const token = session.metadata.token;
 
-/**
- * @swagger
- * /api/payments/sync/paypal:
- *   post:
- *     summary: Sync PayPal payment status
- *     tags: [Payment Sync]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       description: PayPal payment payload
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               invoiceId:
- *                 type: string
- *                 example: 64ab1234cdef56789abcd123
- *               status:
- *                 type: string
- *                 description: Payment status (completed, failed, refunded)
- *                 example: completed
- *               paypalOrderId:
- *                 type: string
- *                 example: 5O190127TN364715T
- *     responses:
- *       200:
- *         description: Payment synced successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: PayPal payment synced
- *       400:
- *         description: Invalid data
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post("/paypal", protect, syncPayPalPayment);
+    const link = await PaymentLink.findOne({ token });
+    if (link && link.status === "PENDING") {
+      link.status = "PAID";
+      await link.save();
 
+      await Invoice.findByIdAndUpdate(link.invoiceId, {
+        status: "PAID"
+      });
+    }
+  }
+
+  res.json({ received: true });
+});
 
 export default router;

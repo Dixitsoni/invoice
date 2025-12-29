@@ -3,6 +3,9 @@ import Razorpay from "razorpay";
 import paypal from "@paypal/checkout-server-sdk";
 import Invoice from "../model/Invoice.js";
 import { configDotenv } from "dotenv";
+import PaymentLink from "../model/PaymentLink.js";
+import { createPaymentLink } from "../helper/createPyamentLink.js";
+import { validatePaymentLink } from "./payment.validate.js";
 
 configDotenv();
 // ---------- Stripe Setup ----------
@@ -23,59 +26,125 @@ const paypalEnv =
 
 const paypalClient = new paypal.core.PayPalHttpClient(paypalEnv);
 
+
+configDotenv();
+
+// ---------------- Stripe Payment ----------------
+
+export const sendInvoiceLink = async (req, res) => {
+  try {
+    const { invoiceId } = req.body;
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+    // Generate payment link
+    const paymentUrl = await createPaymentLink(invoice);
+
+    // Send link via WhatsApp, email, etc.
+    // e.g., sendWhatsApp(invoice.clientPhone, paymentUrl)
+
+    res.json({ paymentUrl });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const generatePaymentLink = async (req, res) => {
+  try {
+    const { invoiceId } = req.body;
+
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+    if (invoice.status === "PAID") {
+      return res.status(400).json({ message: "Invoice already paid" });
+    }
+
+    const paymentUrl = await createPaymentLink(invoice);
+
+
+    // 🔔 WhatsApp send here (Wasender / Twilio)
+    // sendWhatsApp(invoice.clientPhone, paymentUrl);
+
+
+    res.json({ paymentUrl });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 export const paymentStripe = async (req, res) => {
   try {
-    const { amount, invoiceId } = req.body;
+    const { token } = req.body;
+    const link = await validatePaymentLink(token);
+    const invoice = await Invoice.findById(link.invoiceId);
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
           price_data: {
             currency: "usd",
-            product_data: { name: "Payment" },
-            unit_amount: 1000,
+            product_data: { name: `Invoice #${invoice._id}` },
+            unit_amount: Math.round(invoice.totalAmount * 100),
           },
           quantity: 1,
         },
       ],
-      success_url: "https://pay-ochre-five.vercel.app/success",
-      cancel_url: "https://pay-ochre-five.vercel.app/cancel",
+      success_url: `https://pay-ochre-five.vercel.app/success?token=${token}`,
+      cancel_url: `https://pay-ochre-five.vercel.app/cancel`,
+      metadata: { token },
     });
 
     res.json({ url: session.url });
-
-
-    res.json({ clientSecret: session.client_secret });
-
-    // const paymentIntent = await stripe.paymentIntents.create({
-    //   amount: amount, // in cents
-    //   currency: "usd",
-    //   description: "Invoice Payment",
-    //   metadata: { invoiceId },
-    //   receipt_email: req.body.email,
-    //   shipping: {
-    //     name: req.body.name,
-    //     address: {
-    //       line1: req.body.addressLine1,
-    //       city: req.body.city,
-    //       state: req.body.state,
-    //       postal_code: req.body.postalCode,
-    //       country: req.body.country,
-    //     },
-    //     phone: req.body.phone,
-    //     email: req.body.email,
-    //   },
-    //   // automatic_payment_methods: { enabled: true },
-    // });
-
-
-    // res.status(200).json({
-    //   clientSecret: paymentIntent.client_secret,
-    // });
   } catch (err) {
-    res.status(400).status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 };
+
+// ---------------- Confirm Payment Endpoint ----------------
+export const confirmPayment = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const link = await PaymentLink.findOne({ token });
+    if (!link)
+      return res.status(400).json({ message: "Invalid payment link" });
+
+    if (link.status !== "PENDING")
+      return res.status(400).json({ message: "Payment link already used or expired" });
+
+    if (link.expiresAt < new Date()) {
+      link.status = "EXPIRED";
+      await link.save();
+      return res.status(400).json({ message: "Payment link expired" });
+    }
+
+    // Update invoice
+    const invoice = await Invoice.findById(link.invoiceId);
+    if (!invoice)
+      return res.status(404).json({ message: "Invoice not found" });
+
+    invoice.status = "paid";
+    await invoice.save();
+
+    // Expire link permanently
+    link.status = "PAID";
+    await link.save();
+
+    res.json({
+      success: true,
+      invoice,
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
 // ---------- Stripe Payment ----------
 export const createStripePayment = async (req, res, next) => {
   try {

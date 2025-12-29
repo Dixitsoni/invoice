@@ -1,6 +1,8 @@
 import express from "express";
-import { createStripePayment, createRazorpayPayment, createPayPalPayment, paymentStripe } from "../controllers/payment.controller.js";
+import { createStripePayment, createRazorpayPayment, createPayPalPayment, paymentStripe, sendInvoiceLink, generatePaymentLink, confirmPayment } from "../controllers/payment.controller.js";
 import { protect } from "../middleware/auth.js";
+import { validatePaymentLink } from "../controllers/payment.validate.js";
+import { createStripeCheckout } from "../controllers/stripe.payment.js";
 
 const router = express.Router();
 
@@ -98,7 +100,13 @@ router.post("/stripe", protect, createStripePayment);
  *       500:
  *         description: Internal server error
  */
-router.post("/create-payment-intent", paymentStripe);
+router.post("/create-payment-intent", createStripeCheckout);
+
+router.get("/validate/:token", validatePaymentLink);
+
+router.post('/generate-link', generatePaymentLink)
+
+router.post("/confirm/:token", confirmPayment);
 
 
 /**
