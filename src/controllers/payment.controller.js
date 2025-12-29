@@ -56,7 +56,7 @@ export const generatePaymentLink = async (req, res) => {
     const invoice = await Invoice.findById(invoiceId);
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
-    if (invoice.status === "PAID") {
+    if (invoice.status === "paid") {
       return res.status(400).json({ message: "Invoice already paid" });
     }
 
