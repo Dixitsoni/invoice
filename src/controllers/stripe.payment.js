@@ -24,7 +24,7 @@ export const createStripeCheckout = async (req, res) => {
         },
         quantity: 1
       }],
-      success_url: `${process.env.FRONTEND_URL}/success`,
+      success_url: `${process.env.FRONTEND_URL}/success?token=${token}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       metadata: { token }
     });
