@@ -23,3 +23,4 @@ export const validatePaymentLink = async (token) => {
   return { link, invoice };
 };
 
+
