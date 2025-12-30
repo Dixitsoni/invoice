@@ -142,7 +142,7 @@ router.post("/confirm/:token", confirmPayment);
  *       500:
  *         description: Server error
  */
-router.post("/razorpay", protect, createRazorpayPayment);
+// router.post("/razorpay", protect, createRazorpayPayment);
 
 /**
  * @swagger
@@ -182,6 +182,6 @@ router.post("/razorpay", protect, createRazorpayPayment);
  *       500:
  *         description: Server error
  */
-router.post("/paypal", protect, createPayPalPayment);
+// router.post("/paypal", protect, createPayPalPayment);
 
 export default router;

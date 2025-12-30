@@ -11,7 +11,10 @@ const paymentLinkSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  amount: Number,
+  amount: {
+    type: Number,
+    required: true
+  },
   expiresAt: Date,
   status: {
     type: String,

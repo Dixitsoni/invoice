@@ -58,22 +58,20 @@ export const generatePaymentLink = async (req, res) => {
 
     if (invoice.status === "paid") {
       return res.status(400).json({ message: "Invoice already paid" });
-    } else {
-
-      const paymentUrl = await createPaymentLink(invoice);
-
-
-      // 🔔 WhatsApp send here (Wasender / Twilio)
-      // sendWhatsApp(invoice.clientPhone, paymentUrl);
-
-
-      res.json({ paymentUrl });
     }
 
+    const paymentUrl = await createPaymentLink(invoice);
+
+    // ✅ Mark invoice as SENT
+    invoice.status = "sent";
+    await invoice.save();
+
+    res.json({ paymentUrl });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 
 export const paymentStripe = async (req, res) => {
@@ -111,11 +109,11 @@ export const confirmPayment = async (req, res) => {
     const { token } = req.params;
 
     const link = await PaymentLink.findOne({ token });
-    if (!link)
-      return res.status(400).json({ message: "Invalid payment link" });
+    if (!link) return res.status(400).json({ message: "Invalid payment link" });
 
-    if (link.status !== "PENDING")
-      return res.status(400).json({ message: "Payment link already used or expired" });
+    if (link.status !== "PENDING") {
+      return res.status(400).json({ message: "Link already used or expired" });
+    }
 
     if (link.expiresAt < new Date()) {
       link.status = "EXPIRED";
@@ -123,23 +121,18 @@ export const confirmPayment = async (req, res) => {
       return res.status(400).json({ message: "Payment link expired" });
     }
 
-    // Update invoice
-    const invoice = await Invoice.findById(link.invoiceId);
-    if (!invoice)
-      return res.status(404).json({ message: "Invoice not found" });
-
-    invoice.status = "paid";
-    await invoice.save();
-
-    // Expire link permanently
+    // ✅ expire payment link
     link.status = "PAID";
     await link.save();
 
-    res.json({
-      success: true,
-      invoice,
-    });
+    const invoice = await Invoice.findById(link.invoiceId);
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
+    // ✅ lowercase enum value
+    invoice.status = "paid";
+    await invoice.save();
+
+    res.json({ invoice });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -159,7 +152,7 @@ export const createStripePayment = async (req, res, next) => {
     const charges = await stripe.charges.list();
 
     const sessions = await stripe.checkout.sessions.list();
-
+    console.log(sessions)
 
     res.json({ paymentIntents });
 
