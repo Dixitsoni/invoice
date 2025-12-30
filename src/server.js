@@ -38,7 +38,6 @@ setupSecurity(app);
 setupSwagger(app);
 
 cron.schedule("*/30 * * * *", async () => {
-  console.log("Running payment link expiry job");
 
   await PaymentLink.updateMany(
     {

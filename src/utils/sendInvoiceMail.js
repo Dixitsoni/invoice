@@ -1,12 +1,6 @@
 import nodemailer from "nodemailer";
 
-export const sendInvoiceByMail = async ({
-  to,
-  clientName,
-  invoiceNumber,
-  amount,
-  paymentLink,
-}) => {
+export const sendInvoiceByMail = async (mailData) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -17,15 +11,15 @@ export const sendInvoiceByMail = async ({
 
   const html = `
   <div style="font-family:Arial;max-width:600px;margin:auto;border:1px solid #ddd;padding:20px">
-    <h2 style="color:#4f46e5">Invoice #${invoiceNumber}</h2>
+    <h2 style="color:#4f46e5">Invoice #${mailData.invoiceNumber}</h2>
 
-    <p>Hello <b>${clientName}</b>,</p>
+    <p>Hello <b>${mailData.clientName}</b>,</p>
 
     <p>Your invoice has been generated.</p>
 
-    <p><b>Amount:</b> ₹${amount}</p>
+    <p><b>Amount:</b> ₹${mailData.amount}</p>
 
-    <a href="${paymentLink}"
+    <a href="${mailData.paymentLink}"
       style="
         display:inline-block;
         padding:12px 20px;
@@ -48,8 +42,8 @@ export const sendInvoiceByMail = async ({
 
   await transporter.sendMail({
     from: `"Invoice App" <${process.env.GMAIL_USER}>`,
-    to,
-    subject: `Invoice #${invoiceNumber} – Payment Link`,
+    to: mailData.to,
+    subject: `Invoice #${mailData.invoiceNumber} – Payment Link`,
     html,
   });
 };

@@ -26,7 +26,7 @@ export const createStripeCheckout = async (req, res) => {
       }],
       success_url: `${process.env.FRONTEND_URL}/success?token=${token}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-      metadata: { token }
+      metadata: { token, invoiceId: invoice._id }
     });
 
     res.json({ url: session.url });

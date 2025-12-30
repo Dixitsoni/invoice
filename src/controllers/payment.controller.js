@@ -54,7 +54,7 @@ export const generatePaymentLink = async (req, res) => {
   try {
     const { invoiceId } = req.body;
 
-    const invoice = await Invoice.findById(invoiceId);
+    const invoice = await Invoice.findById(invoiceId).populate('clientId');
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
     if (invoice.status === "paid") {
@@ -67,13 +67,17 @@ export const generatePaymentLink = async (req, res) => {
     invoice.status = "sent";
     await invoice.save();
 
-    await sendInvoiceByMail({
+    console.log(invoice)
+
+    let mailOptions = {
       to: invoice.clientId.email,
       clientName: invoice.clientId.name,
       invoiceNumber: invoice.invoiceNumber,
       amount: invoice.totalAmount,
       paymentLink: paymentUrl,
-    });
+    }
+
+    await sendInvoiceByMail(mailOptions);
 
 
     res.json({ paymentUrl });
@@ -153,18 +157,9 @@ export const confirmPayment = async (req, res) => {
 // ---------- Stripe Payment ----------
 export const createStripePayment = async (req, res, next) => {
   try {
-    const { invoiceId } = req.body;
-    const invoice = await Invoice.findById(invoiceId);
-    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
-
-    const paymentIntents = await stripe.paymentIntents.list();
-
-    const charges = await stripe.charges.list();
-
     const sessions = await stripe.checkout.sessions.list();
-    console.log(sessions)
 
-    res.json({ paymentIntents });
+    res.json({ sessions });
 
   } catch (err) {
     next(err);
