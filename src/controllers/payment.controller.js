@@ -6,6 +6,7 @@ import { configDotenv } from "dotenv";
 import PaymentLink from "../model/PaymentLink.js";
 import { createPaymentLink } from "../helper/createPyamentLink.js";
 import { validatePaymentLink } from "./payment.validate.js";
+import { sendInvoiceByMail } from "../utils/sendInvoiceMail.js";
 
 configDotenv();
 // ---------- Stripe Setup ----------
@@ -65,6 +66,15 @@ export const generatePaymentLink = async (req, res) => {
     // ✅ Mark invoice as SENT
     invoice.status = "sent";
     await invoice.save();
+
+    await sendInvoiceByMail({
+      to: invoice.clientId.email,
+      clientName: invoice.clientId.name,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.totalAmount,
+      paymentLink: paymentUrl,
+    });
+
 
     res.json({ paymentUrl });
   } catch (err) {

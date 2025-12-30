@@ -53,7 +53,7 @@ export const sendInvoiceEmail = async (req, res, next) => {
 
     await transporter.sendMail({
       from: `"Invoice Automation" <${process.env.SMTP_USER}>`,
-      to: email || invoice.client.email,
+      to: email || invoice.clientId.email,
       subject: `Invoice #${invoice.invoiceNumber}`,
       text: `Please find your invoice attached.`,
       attachments: [{ path: filePath }],
